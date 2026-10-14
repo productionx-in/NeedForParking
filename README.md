@@ -42,6 +42,7 @@ Migrations are plain SQL in `supabase/migrations/` (apply in filename order):
 | `…03_rls_and_grants.sql` | RLS on every table + explicit column-level grants |
 | `…04_rpc_search_admin.sql` | `search_listings`, owner/disclosure RPCs, admin RPCs |
 | `…05_storage.sql` | `listing-photos` bucket + storage policies |
+| `…06_harden_functions.sql` | advisor fixes: revoke trigger fn from API roles, pin `search_path` |
 
 Either **CLI** — `npx supabase login && npx supabase link --project-ref <ref> && npx supabase db push` — or paste each file into the dashboard **SQL Editor** in order.
 
