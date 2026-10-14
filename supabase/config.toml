@@ -1,0 +1,32 @@
+# Minimal Supabase CLI config for LOCAL development (`supabase start`).
+# NOTE: written by hand and not exercised in the authoring environment (no Docker daemon) — if the CLI
+# complains, run `supabase init` and copy just the [auth.sms.test_otp] block and the site_url below.
+project_id = "parking-research-prototype"
+
+[api]
+port = 54321
+
+[db]
+port = 54322
+major_version = 17
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+additional_redirect_urls = ["http://localhost:3000/**"]
+jwt_expiry = 3600
+enable_signup = true
+
+[auth.sms]
+enable_signup = true
+enable_confirmations = true
+# Provider-supported TEST numbers: no SMS is sent, the fixed OTP below is accepted. Local development only.
+[auth.sms.test_otp]
+919876500001 = "123456"
+919876500002 = "123456"
+919876500003 = "123456"
+919876500004 = "123456"
+
+[storage]
+enabled = true
+file_size_limit = "5MiB"

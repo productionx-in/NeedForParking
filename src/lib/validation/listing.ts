@@ -144,6 +144,8 @@ export const WIZARD_STEPS = [
 export type FieldErrors = Partial<Record<ListingFieldName, string>>;
 
 function isFilled(v: unknown): boolean {
+  // "unconfirmed" is the untouched default of the permission field, not a user-provided answer.
+  if (v === "unconfirmed") return false;
   if (typeof v === "string") return v.trim() !== "";
   if (Array.isArray(v)) return v.length > 0;
   return v === true;

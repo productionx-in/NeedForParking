@@ -1,9 +1,9 @@
 "use client";
 
-import { useActionState, useEffect, useMemo, useState } from "react";
+import { useActionState, useEffect, useState } from "react";
 import { requestOtpAction, verifyOtpAction } from "@/app/actions/auth";
 import { initialOtpState, type OtpState } from "@/lib/auth/otp";
-import { DEFAULT_COUNTRY, getCountryOptions } from "@/lib/auth/phone";
+import { DEFAULT_COUNTRY, type CountryOption } from "@/lib/auth/phone";
 import { Alert, Field, Input, Select } from "@/components/ui";
 import { SubmitButton } from "@/components/submit-button";
 
@@ -21,12 +21,14 @@ function useCountdown(sentAt: number | null, seconds: number) {
   return left;
 }
 
-export function PhoneOtpForm({ next }: { next?: string }) {
+/**
+ * `countries` is computed on the server and passed in: building it here with Intl.DisplayNames would use different ICU
+ * data in Node and in the browser, causing a hydration mismatch (React #418) that wipes anything typed meanwhile.
+ */
+export function PhoneOtpForm({ next, countries }: { next?: string; countries: CountryOption[] }) {
   const [sendState, sendAction] = useActionState<OtpState, FormData>(requestOtpAction, initialOtpState);
   const [verifyState, verifyAction] = useActionState<OtpState, FormData>(verifyOtpAction, initialOtpState);
-  const countries = useMemo(() => getCountryOptions(), []);
   const [country, setCountry] = useState<string>(DEFAULT_COUNTRY);
-  const [phone, setPhone] = useState("");
 
   // The verification step is shown once the provider has confirmed the send (or while re-entering a code).
   const active: OtpState = verifyState.status === "idle" ? sendState : verifyState.status === "sent" ? verifyState : sendState.status === "sent" ? sendState : verifyState;
@@ -83,7 +85,8 @@ export function PhoneOtpForm({ next }: { next?: string }) {
       {sendError && !setupError && <Alert tone="error">{sendError.message}</Alert>}
       {verifyError && sent === null && <Alert tone="error">{verifyError}</Alert>}
       <Field id="country" label="Country">
-        <Select id="country" name="country" value={country} onChange={(e) => setCountry(e.target.value)} autoComplete="country">
+        {/* Uncontrolled on purpose: text typed before hydration finishes must not be wiped. */}
+        <Select id="country" name="country" defaultValue={DEFAULT_COUNTRY} onChange={(e) => setCountry(e.target.value)} autoComplete="country">
           {countries.map((c) => (
             <option key={c.code} value={c.code}>
               {c.name} ({c.dial})
@@ -99,8 +102,6 @@ export function PhoneOtpForm({ next }: { next?: string }) {
           inputMode="tel"
           autoComplete="tel-national"
           placeholder={country === "IN" ? "98765 43210" : "Mobile number"}
-          value={phone}
-          onChange={(e) => setPhone(e.target.value)}
           error={sendError?.kind === "validation" ? sendError.message : undefined}
           hint={`We'll text you a one-time code. Your number stays private. (${dial})`}
           required

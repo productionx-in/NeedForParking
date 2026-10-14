@@ -3,6 +3,7 @@ import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { PROJECT_LABEL } from "@/lib/domain/constants";
+import { HydrationMarker } from "@/components/hydration-marker";
 
 export const metadata: Metadata = {
   title: { default: PROJECT_LABEL, template: `%s · ${PROJECT_LABEL}` },
@@ -21,6 +22,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
         </main>
         <SiteFooter />
+        <HydrationMarker />
       </body>
     </html>
   );

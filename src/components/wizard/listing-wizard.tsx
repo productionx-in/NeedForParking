@@ -33,9 +33,9 @@ export function ListingWizard({ listingId: initialId, initialValues = EMPTY_LIST
     setErrors((e) => (e[key] ? { ...e, [key]: undefined } : e));
   }, []);
 
-  const goTo = (i: number) => {
+  const goTo = (i: number, keepBanner = false) => {
     setStep(i);
-    setBanner(null);
+    if (!keepBanner) setBanner(null);
     requestAnimationFrame(() => heading.current?.focus());
   };
 
@@ -78,12 +78,12 @@ export function ListingWizard({ listingId: initialId, initialValues = EMPTY_LIST
     const firstBad = WIZARD_STEPS.findIndex((s) => s.fields.some((f) => found[f]));
     if (firstBad !== -1) {
       setBanner({ tone: "error", text: `Some required details are missing in “${WIZARD_STEPS[firstBad]!.title}”.` });
-      goTo(firstBad);
+      goTo(firstBad, true);
       return;
     }
     if (photos.length === 0) {
       setBanner({ tone: "error", text: "Add at least one photo before publishing." });
-      goTo(2);
+      goTo(2, true);
       return;
     }
     start(async () => {

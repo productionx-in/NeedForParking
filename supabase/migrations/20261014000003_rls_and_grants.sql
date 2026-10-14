@@ -20,6 +20,11 @@ revoke all on public.profiles, public.parking_listings, public.listing_private_d
               public.booking_requests, public.favorites, public.reports, public.admin_audit_log
   from public, anon, authenticated;
 
+-- The service role (server-side maintenance scripts only) keeps explicit access regardless of project defaults.
+grant select, insert, update, delete on public.profiles, public.parking_listings, public.listing_private_details,
+      public.listing_photos, public.booking_requests, public.favorites, public.reports, public.admin_audit_log
+  to service_role;
+
 -- Helper functions used inside policies must be callable by the roles evaluating them.
 revoke execute on function public.is_admin(), public.is_account_active(), public.can_transact(),
                            public.owns_listing(uuid), public.owner_is_active(uuid), public.is_listing_public(uuid)

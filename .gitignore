@@ -15,3 +15,5 @@ next-env.d.ts
 .DS_Store
 supabase/.temp
 supabase/.branches
+.env.e2e
+tests/e2e/.auth

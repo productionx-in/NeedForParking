@@ -6,6 +6,7 @@ import { Card } from "@/components/ui";
 import { isSupabaseConfigured } from "@/lib/env";
 import { getSessionUser } from "@/lib/auth/session";
 import { safeNextPath } from "@/lib/auth/redirect";
+import { getCountryOptions } from "@/lib/auth/phone";
 
 export const metadata: Metadata = { title: "Sign in" };
 
@@ -21,7 +22,7 @@ export default async function LoginPage({ searchParams }: { searchParams: Promis
       {safeNext && <p className="mt-2 text-sm text-slate-600">You&apos;ll be taken back to where you were after signing in.</p>}
       <Card className="mt-6 p-5 sm:p-6">
         {!isSupabaseConfigured() && <div className="mb-4"><SetupNotice what="Sign-in" /></div>}
-        <PhoneOtpForm next={safeNext} />
+        <PhoneOtpForm next={safeNext} countries={getCountryOptions()} />
       </Card>
     </div>
   );
