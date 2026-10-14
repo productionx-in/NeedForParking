@@ -3,7 +3,7 @@ import { createTestDb, createUser, createPublished, createDraft, setStatus, as, 
 
 type Row = {
   id: string; title: string; locality: string; price_inr: string; rental_type: string; cover_type: string;
-  vehicle_types: string[]; is_open_now: boolean; distance_km: number | null; total_count: string | number;
+  vehicle_types: string[]; is_open_now: boolean; distance_m: number | null; total_count: string | number;
   latitude: number; longitude: number; cover_photo_path: string | null;
 };
 
@@ -118,16 +118,16 @@ describe("search_listings: filters operate on real database rows", () => {
 
   it("computes distance from destination coordinates, filters by radius and sorts by distance", async () => {
     const hitec = { p_lat: 17.4435, p_lng: 78.3772 };
-    const near = await search({ ...hitec, p_radius_km: 3, p_sort: "distance" });
+    const near = await search({ ...hitec, p_radius_m: 3000, p_sort: "distance" });
     expect(near.length).toBeGreaterThanOrEqual(2);
-    expect(near.every((r) => r.distance_km! <= 3)).toBe(true);
-    const sorted = near.map((r) => r.distance_km!);
+    expect(near.every((r) => r.distance_m! <= 3000 + 110)).toBe(true); // approximate pins get ~110 m tolerance
+    const sorted = near.map((r) => r.distance_m!);
     expect(sorted).toEqual([...sorted].sort((a, b) => a - b));
     expect(titles(near)).not.toContain("Listing ameerpet-car-open-monthly"); // ~7 km away
-    const far = await search({ ...hitec, p_radius_km: 15 });
+    const far = await search({ ...hitec, p_radius_m: 15000 });
     expect(far).toHaveLength(5);
     const nearest = await search({ ...hitec, p_sort: "distance" });
-    expect(nearest[0]!.distance_km!).toBeLessThan(nearest[nearest.length - 1]!.distance_km!);
+    expect(nearest[0]!.distance_m!).toBeLessThan(nearest[nearest.length - 1]!.distance_m!);
   });
 
   it("distance is computed from PUBLIC (snapped) coordinates, never the exact pin", async () => {
@@ -135,7 +135,7 @@ describe("search_listings: filters operate on real database rows", () => {
     const mad = rows.find((r) => r.title === "Listing madhapur-car-covered-monthly")!;
     expect(mad.latitude).not.toBe(17.4486);
     // Exact pin is at distance 0 from the query point; reported distance must not reveal that.
-    expect(mad.distance_km!).toBeGreaterThan(0);
+    expect(mad.distance_m!).toBeGreaterThan(0);
   });
 
   it("sorts by price", async () => {
@@ -148,5 +148,70 @@ describe("search_listings: filters operate on real database rows", () => {
   it("combines filters", async () => {
     const rows = await search({ p_vehicle: "car", p_cover_type: "covered", p_rental_type: "monthly", p_max_price: 5000, p_query: "madhapur" });
     expect(titles(rows)).toEqual(["Listing madhapur-car-covered-monthly"]);
+  });
+});
+
+
+describe("walking-distance search (metres)", () => {
+  let db: Db;
+  let owner: string;
+  const ids: Record<string, string> = {};
+  const DEST = { lat: 17.44, lng: 78.35 };
+  const M_PER_DEG_LAT = 111_195;
+  const northOf = (metres: number) => DEST.lat + metres / M_PER_DEG_LAT;
+
+  const search = async (args: Record<string, unknown>) => {
+    const keys = Object.keys(args);
+    const sql = `select * from public.search_listings(${keys.map((k, i) => `${k} => $${i + 1}`).join(", ")})`;
+    return (await as(db, anon, (tx) => tx.query<Row>(sql, keys.map((k) => args[k])))).rows;
+  };
+  const near = async (radiusM: number) =>
+    (await search({ p_lat: DEST.lat, p_lng: DEST.lng, p_radius_m: radiusM, p_sort: "distance", p_limit: 100 })).map((r) => r.title);
+
+  beforeAll(async () => {
+    db = await createTestDb();
+    owner = await createUser(db);
+    const base = { available_days: [0, 1, 2, 3, 4, 5, 6], available_from: null, available_to: null, access_24h: true };
+    // Exact-pin listings at known distances (public point == real point, so distances are exact).
+    for (const m of [50, 150, 250, 400, 900]) {
+      await createPublished(db, owner, { title: `Exact ${m}m`, location_privacy: "exact", ...base }, { exact_latitude: northOf(m), exact_longitude: DEST.lng });
+    }
+    // Approximate listing: its public pin is the centre of a ~220 m cell, so the real spot may be up to ~150 m away from it.
+    await createPublished(db, owner, { title: "Approx", location_privacy: "approximate", ...base }, { exact_latitude: northOf(230), exact_longitude: DEST.lng + 0.0003 });
+    ids.approx = (await db.query<{ id: string }>(`select id from public.parking_listings where title = 'Approx'`)).rows[0]!.id;
+  });
+
+  it("filters by walking distance in metres around an exact destination", async () => {
+    expect(await near(100)).toEqual(["Exact 50m"]);
+    expect(await near(200)).toEqual(["Exact 50m", "Exact 150m"]);
+    expect(await near(300)).toEqual(expect.arrayContaining(["Exact 50m", "Exact 150m", "Exact 250m"]));
+    expect(await near(300)).not.toContain("Exact 400m");
+    expect(await near(500)).toEqual(expect.arrayContaining(["Exact 400m"]));
+    expect(await near(500)).not.toContain("Exact 900m");
+    expect(await near(1000)).toContain("Exact 900m");
+  });
+
+  it("returns distance in metres, nearest first", async () => {
+    const rows = await search({ p_lat: DEST.lat, p_lng: DEST.lng, p_radius_m: 1000, p_sort: "distance" });
+    const d = rows.map((r) => r.distance_m!);
+    expect(d).toEqual([...d].sort((a, b) => a - b));
+    expect(rows.find((r) => r.title === "Exact 150m")!.distance_m!).toBeCloseTo(150, -1);
+  });
+
+  it("gives approximate listings ~110 m of tolerance, because their public pin is rounded", async () => {
+    const pub = await db.query<{ latitude: number; longitude: number }>(`select latitude, longitude from public.parking_listings where id = $1`, [ids.approx]);
+    const dPub = (await search({ p_lat: DEST.lat, p_lng: DEST.lng, p_radius_m: 5000 })).find((r) => r.title === "Approx")!.distance_m!;
+    expect(dPub).toBeGreaterThan(120); // sanity: the geometry gives a usable gap
+    expect(pub.rows[0]!.latitude).not.toBeCloseTo(northOf(230), 5); // really snapped
+    // within the tolerance band -> still found; beyond it -> not
+    expect(await near(Math.floor(dPub - 80))).toContain("Approx");
+    expect(await near(Math.floor(dPub - 140))).not.toContain("Approx");
+  });
+
+  it("cannot be used to triangulate: distances are measured to the public point, never the exact pin", async () => {
+    // Query from the exact pin of the approximate listing: the reported distance must NOT be ~0.
+    const rows = await search({ p_lat: northOf(230), p_lng: DEST.lng + 0.0003, p_radius_m: 1000 });
+    const d = rows.find((r) => r.title === "Approx")!.distance_m!;
+    expect(d).toBeGreaterThan(5);
   });
 });

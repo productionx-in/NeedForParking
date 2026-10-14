@@ -62,7 +62,7 @@ export function LocationStep({ values, errors, set }: StepProps) {
   return (
     <div className="space-y-5">
       <Alert tone="info" title="You control what the public sees">
-        Your exact address and pin stay private. By default the public map shows only an approximate area (~400 m). Renters whose request you accept can then see the exact details.
+        Your exact address and pin stay private. By default the public map shows only an approximate area (~200 m). Renters whose request you accept can then see the exact details.
       </Alert>
       <div className="grid gap-4 sm:grid-cols-2">
         <Field id="addressLine" label="Full address (private)" hint="Building, street and landmark. Not shown publicly unless you choose." error={errors.addressLine} required className="sm:col-span-2">

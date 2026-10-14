@@ -67,6 +67,19 @@ test("1. a visitor searches by locality, filters, and opens the listing — seei
   await expect(page.getByRole("heading", { name: "No listings match your search" })).toBeVisible();
   await page.goto(`/search?q=${encodeURIComponent(TITLE)}&vehicle=motorcycle`);
   await expect(page.getByTestId("listing-card")).toHaveCount(0);
+  // Walking distance (metres): found from a spot next to it, not from ~2 km away; the card shows metres.
+  const near = (lat: string, lng: string, radius: number) => `/search?q=${encodeURIComponent(TITLE)}&lat=${lat}&lng=${lng}&radius=${radius}&sort=distance`;
+  await page.goto(near("17.4490", "78.3910", 200));
+  const nearCard = page.getByTestId("listing-card").filter({ hasText: TITLE });
+  await expect(nearCard).toBeVisible();
+  await expect(nearCard.getByText(/~\d+ m away/)).toBeVisible();
+  await expect(page.getByTestId("result-count")).toContainText("within 200 m walk");
+  await page.goto(near("17.4600", "78.4000", 200));
+  await expect(page.getByRole("heading", { name: "No listings match your search" })).toBeVisible();
+  await page.goto(near("17.4600", "78.4000", 2000) /* ~1.6 km away */);
+  await expect(page.getByTestId("listing-card").filter({ hasText: TITLE })).toBeVisible();
+  await expect(page.getByLabel("Walking distance from destination")).toHaveValue("2000");
+
   await page.goto(`/search?q=${encodeURIComponent(TITLE)}&view=map`);
   await expect(page.getByTestId("listing-card").filter({ hasText: TITLE })).toBeVisible();
   await expect(page.getByText("Map unavailable").first()).toBeVisible(); // graceful: no map key in the test env
@@ -308,7 +321,7 @@ test("owners can delete their listing, which then disappears everywhere", async 
   const row = owner.locator("li", { has: owner.getByRole("heading", { name: TITLE }) });
   await row.getByRole("button", { name: "Delete", exact: true }).click();
   await row.getByRole("button", { name: "Yes, delete" }).click();
-  await expect(row.getByText("Listing deleted.")).toBeVisible({ timeout: 15_000 });
+  await expect(owner.getByRole("heading", { name: TITLE })).toHaveCount(0, { timeout: 15_000 }); // the row leaves the list
   await owner.reload();
   await expect(owner.getByRole("heading", { name: TITLE })).toHaveCount(0);
   const ctx = await browser.newContext();

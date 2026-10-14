@@ -2,7 +2,7 @@ import Link from "next/link";
 import type { SearchRow } from "@/lib/types";
 import { Badge, DemoBadge, cx } from "@/components/ui";
 import { ListingPhoto } from "@/components/listing/listing-photo";
-import { formatDays, formatHours, formatINR, rentalSuffix, vehicleLabel } from "@/lib/domain/format";
+import { formatDays, formatDistance, formatHours, formatINR, rentalSuffix, vehicleLabel } from "@/lib/domain/format";
 
 type Props = {
   listing: SearchRow;
@@ -42,7 +42,7 @@ export function ListingCard({ listing: l, selected = false, onSelect, footer }: 
           </h3>
           <p className="text-sm text-slate-600">
             {l.locality ?? "Hyderabad"}, {l.city}
-            {l.distance_km !== null && l.distance_km !== undefined && <span> · {l.distance_km.toFixed(1)} km away</span>}
+            {l.distance_m !== null && l.distance_m !== undefined && <span> · {formatDistance(l.distance_m)} away</span>}
           </p>
         </div>
         <p className="text-lg font-bold text-slate-900">

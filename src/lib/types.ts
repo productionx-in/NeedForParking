@@ -74,7 +74,7 @@ export type SearchRow = {
   created_at: string;
   cover_photo_path: string | null;
   is_open_now: boolean;
-  distance_km: number | null;
+  distance_m: number | null;
   total_count: number | string;
 };
 

@@ -15,6 +15,10 @@ type Props = {
   selectedId?: string | null;
   onSelect?: (id: string) => void;
   destination?: { lat: number; lng: number } | null;
+  /** Walking radius drawn around the destination. */
+  radiusM?: number;
+  /** When set, clicking empty map sets a new destination. */
+  onPick?: (lat: number, lng: number) => void;
   className?: string;
   ariaLabel: string;
   zoom?: number;
@@ -22,7 +26,7 @@ type Props = {
 
 const STYLE = "mapbox://styles/mapbox/streets-v12";
 
-export function MapView({ markers, selectedId, onSelect, destination, className = "h-96", ariaLabel, zoom = 12 }: Props) {
+export function MapView({ markers, selectedId, onSelect, destination, radiusM, onPick, className = "h-96", ariaLabel, zoom = 12 }: Props) {
   const container = useRef<HTMLDivElement>(null);
   const mapRef = useRef<MapboxMap | null>(null);
   const markerRefs = useRef<Map<string, { marker: Marker; el: HTMLButtonElement }>>(new Map());
@@ -31,8 +35,10 @@ export function MapView({ markers, selectedId, onSelect, destination, className 
   const [ready, setReady] = useState(false);
   const [failed, setFailed] = useState(false);
   const onSelectRef = useRef(onSelect);
+  const onPickRef = useRef(onPick);
   useEffect(() => {
     onSelectRef.current = onSelect;
+    onPickRef.current = onPick;
   });
 
   // Create the map once.
@@ -60,8 +66,12 @@ export function MapView({ markers, selectedId, onSelect, destination, className 
           map.addSource("approx", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
           map.addLayer({ id: "approx-fill", type: "fill", source: "approx", paint: { "fill-color": "#0d9488", "fill-opacity": 0.14 } });
           map.addLayer({ id: "approx-line", type: "line", source: "approx", paint: { "line-color": "#0f766e", "line-width": 1.5, "line-dasharray": [2, 2] } });
+          map.addSource("radius", { type: "geojson", data: { type: "FeatureCollection", features: [] } });
+          map.addLayer({ id: "radius-fill", type: "fill", source: "radius", paint: { "fill-color": "#b45309", "fill-opacity": 0.08 } });
+          map.addLayer({ id: "radius-line", type: "line", source: "radius", paint: { "line-color": "#b45309", "line-width": 2 } });
           setReady(true);
         });
+        map.on("click", (e) => onPickRef.current?.(e.lngLat.lat, e.lngLat.lng));
         map.on("error", () => setFailed(true));
         mapRef.current = map;
       } catch {
@@ -124,7 +134,12 @@ export function MapView({ markers, selectedId, onSelect, destination, className 
     if (destination) {
       destRef.current = new mapboxgl.Marker({ color: "#b45309" }).setLngLat([destination.lng, destination.lat]).addTo(map);
     }
-  }, [destination, ready]);
+    const radiusSource = map.getSource("radius") as mapboxgl.GeoJSONSource | undefined;
+    radiusSource?.setData({
+      type: "FeatureCollection",
+      features: destination && radiusM ? [circlePolygon(destination.lat, destination.lng, radiusM)] : [],
+    });
+  }, [destination, radiusM, ready]);
 
   // Highlight selection and pan to it.
   useEffect(() => {

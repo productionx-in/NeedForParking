@@ -72,6 +72,18 @@ describe("PhoneOtpForm", () => {
     expect(screen.queryByText("Check your messages")).not.toBeInTheDocument();
   });
 
+  it("keeps the typed number and chosen country after a failed send (React resets uncontrolled fields after an action)", async () => {
+    requestOtp.mockResolvedValue({ status: "error", kind: "rate_limit", message: "Please wait 42s before requesting another code.", retryAfterSeconds: 42 });
+    const user = userEvent.setup();
+    render(<PhoneOtpForm countries={countries} />);
+    await user.selectOptions(screen.getByLabelText("Country"), "GB");
+    await user.type(screen.getByLabelText(/Mobile number/), "07911 123456");
+    await user.click(screen.getByRole("button", { name: "Send code" }));
+    expect(await screen.findByText(/Please wait 42s/)).toBeInTheDocument();
+    expect(screen.getByLabelText(/Mobile number/)).toHaveValue("07911 123456");
+    expect(screen.getByLabelText("Country")).toHaveValue("GB");
+  });
+
   it("shows an inline validation message for a bad number", async () => {
     requestOtp.mockResolvedValue({ status: "error", kind: "validation", message: "That mobile number doesn't look valid for the selected country." });
     const user = userEvent.setup();

@@ -100,7 +100,7 @@ export async function getFavoriteListings(userId: string): Promise<SearchRow[]> 
       access_24h: r.access_24h, overnight_allowed: r.overnight_allowed, latitude: r.latitude, longitude: r.longitude,
       location_privacy: r.location_privacy, is_demo: r.is_demo, created_at: r.created_at,
       cover_photo_path: [...r.listing_photos].sort((a, b) => a.position - b.position)[0]?.storage_path ?? null,
-      is_open_now: false, distance_km: null, total_count: rows.length,
+      is_open_now: false, distance_m: null, total_count: rows.length,
     }));
 }
 

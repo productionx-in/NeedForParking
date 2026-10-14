@@ -6,6 +6,7 @@ import { Pagination } from "@/components/search/pagination";
 import { SetupNotice } from "@/components/setup-notice";
 import { Alert, buttonClass, EmptyState, cx } from "@/components/ui";
 import { searchListings } from "@/lib/data/listings";
+import { formatRadius } from "@/lib/domain/format";
 import { buildSearchQuery, parseSearchParams, resolveDestination, activeFilterCount } from "@/lib/validation/search";
 
 export const metadata: Metadata = { title: "Find parking in Hyderabad" };
@@ -40,7 +41,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
           <div className="flex flex-wrap items-center justify-between gap-3">
             <p aria-live="polite" className="text-sm text-slate-700" data-testid="result-count">
               <strong>{outcome.total}</strong> {outcome.total === 1 ? "listing" : "listings"}
-              {destination && <> near <strong>{destination.label}</strong> (within {filters.radiusKm} km)</>}
+              {destination && <> near <strong>{destination.label}</strong> (within {formatRadius(filters.radiusM)} walk)</>}
             </p>
             <div role="group" aria-label="Results view" className="inline-flex overflow-hidden rounded-lg border border-slate-300 bg-white">
               {(["list", "map"] as const).map((v) => (
@@ -73,7 +74,7 @@ export default async function SearchPage({ searchParams }: { searchParams: Promi
             </EmptyState>
           ) : (
             <>
-              <ResultsExplorer items={outcome.items} view={filters.view} destination={destination ? { lat: destination.lat, lng: destination.lng } : null} />
+              <ResultsExplorer items={outcome.items} view={filters.view} filters={filters} destination={destination ? { lat: destination.lat, lng: destination.lng } : null} />
               <Pagination page={filters.page} totalPages={Math.max(1, Math.ceil(outcome.total / outcome.pageSize))} hrefFor={(p) => q({ page: p === 1 ? null : p })} />
             </>
           )}

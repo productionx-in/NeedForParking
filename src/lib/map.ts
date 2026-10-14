@@ -1,8 +1,8 @@
 import type { Feature, Polygon } from "geojson";
 import { REGION_BOUNDS } from "@/lib/domain/constants";
 
-/** Public coordinates are snapped to a ~430 m grid, so show a ~300 m circle instead of a precise pin. */
-export const APPROX_RADIUS_M = 300;
+/** Public coordinates are snapped to a ~220 m grid, so show a ~150 m circle instead of a precise pin. */
+export const APPROX_RADIUS_M = 150;
 
 /** GeoJSON polygon approximating a circle (good enough for a few hundred metres). */
 export function circlePolygon(lat: number, lng: number, radiusM: number, steps = 48): Feature<Polygon> {
@@ -28,6 +28,6 @@ export function haversineKm(a: { lat: number; lng: number }, b: { lat: number; l
 }
 
 /** Mirrors the database's snap_coordinate() so the UI can preview what will be public. */
-export function snapCoordinate(v: number, step = 0.004): number {
+export function snapCoordinate(v: number, step = 0.002): number {
   return Math.round((Math.floor(v / step) + 0.5) * step * 1e6) / 1e6;
 }

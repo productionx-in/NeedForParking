@@ -1,15 +1,27 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useCallback, useMemo, useState } from "react";
 import type { SearchRow } from "@/lib/types";
 import { ListingCard } from "@/components/listing/listing-card";
 import { MapView, type MapMarker } from "@/components/map/map-view";
 import { formatINR } from "@/lib/domain/format";
 import { cx } from "@/components/ui";
+import { buildSearchQuery, type SearchFilters } from "@/lib/validation/search";
 
 /** List + (optional) interactive map with synchronized selection. */
-export function ResultsExplorer({ items, view, destination }: { items: SearchRow[]; view: "list" | "map"; destination: { lat: number; lng: number } | null }) {
+export function ResultsExplorer({ items, view, filters, destination }: { items: SearchRow[]; view: "list" | "map"; filters: SearchFilters; destination: { lat: number; lng: number } | null }) {
+  const router = useRouter();
   const [selectedId, setSelectedId] = useState<string | null>(null);
+
+  /** Clicking the map picks a precise destination and re-runs the search nearest-first. */
+  const pickDestination = useCallback(
+    (lat: number, lng: number) => {
+      const qs = buildSearchQuery(filters, { lat: lat.toFixed(5), lng: lng.toFixed(5), near: null, sort: "distance", page: null });
+      router.push(`/search${qs}`);
+    },
+    [filters, router],
+  );
 
   const markers = useMemo<MapMarker[]>(
     () =>
@@ -63,10 +75,12 @@ export function ResultsExplorer({ items, view, destination }: { items: SearchRow
           selectedId={selectedId}
           onSelect={(id) => select(id, true)}
           destination={destination}
+          radiusM={destination ? filters.radiusM : undefined}
+          onPick={pickDestination}
           ariaLabel="Map of matching parking listings"
           className="h-72 lg:h-[calc(100vh-10rem)]"
         />
-        <p className="mt-2 text-xs text-slate-600">Markers show approximate locations unless an owner has chosen to share an exact pin.</p>
+        <p className="mt-2 text-xs text-slate-600">Click the map to search within walking distance of that spot. Markers show approximate locations unless an owner has chosen to share an exact pin.</p>
       </div>
     </div>
   );

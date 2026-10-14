@@ -49,6 +49,8 @@ export async function newPage(context: BrowserContext): Promise<Page> {
   page.goto = (async (url: string, options?: Parameters<Page["goto"]>[1]) => {
     const res = await goto(url, options);
     await page.waitForSelector('html[data-hydrated="true"]', { timeout: 15_000 }).catch(() => undefined);
+    // Page content streams in its own Suspense boundary and can hydrate after the layout marker fires; let it settle.
+    await page.waitForLoadState("networkidle").catch(() => undefined);
     return res;
   }) as Page["goto"];
   return page;

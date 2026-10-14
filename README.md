@@ -10,10 +10,10 @@ A **research prototype** for validating the private / under-used parking market 
 1. [Features](#features) · 2. [Quick start](#quick-start) · 3. [Setup guide](#setup-guide) (Supabase, migrations, phone auth, SMS, redirects, maps, storage, admin, demo data) · 4. [Running & testing](#running-and-testing) · 5. [Deploying](#deploying) · 6. [Security model](#security-model) · 7. [Known limitations](#known-limitations) · 8. [Repository map](#repository-map)
 
 ## Features
-- **Public:** responsive home, search (locality/title, vehicle, price, hourly/daily/monthly, covered/open, weekday, "available now" in IST, overnight, 24-hour), distance search from a named area / coordinates / browser geolocation (only after an explicit button press), list ↔ map views with synchronized selection, pagination, loading/empty/error states, listing pages with photos, terms, map and safe owner info. Demo data is badged everywhere.
+- **Public:** responsive home, search (locality/title, vehicle, price, hourly/daily/monthly, covered/open, weekday, "available now" in IST, overnight, 24-hour), **walking-distance** search in metres (100 m – 2 km; auto = 200 m around a precise point, 1 km around an area) from a map click / coordinates / browser geolocation (only after an explicit button press) or a named area, list ↔ map views with synchronized selection, pagination, loading/empty/error states, listing pages with photos, terms, map and safe owner info. Demo data is badged everywhere.
 - **Auth:** phone-number sign-in/registration with real SMS OTP (country selector, default India +91), resend cooldown, per-number/per-IP rate limits, clear errors, sign-out, profile (display name, optional email). No hard-coded OTP, no fake success: with no backend/provider it shows a setup error.
 - **Listings:** six-step validated wizard (basics → location with draggable map pin → photos with upload progress → price/availability → rules/access → declarations), draft / published / paused / removed, preview, edit, delete (soft). Publishing is validated in the app **and** by a database trigger.
-- **Privacy by design:** the public table holds only disclosable fields. Exact address, exact pin and access instructions live in a separate owner-only table. Public coordinates are **computed by the database**, snapped to a ~430 m grid unless the owner opts in to exact location. Distance search uses the public (snapped) point.
+- **Privacy by design:** the public table holds only disclosable fields. Exact address, exact pin and access instructions live in a separate owner-only table. Public coordinates are **computed by the database**, snapped to a ~220 m grid unless the owner opts in to exact location. Distance search uses the public (snapped) point.
 - **Requests:** one-time or recurring (weekdays, time window); statuses pending/accepted/declined/cancelled/completed; owner can't request own space; server+DB validation of dates, availability, vehicle type, minimum duration; overlapping accepted slots are impossible (serialised with advisory locks); accepted requesters (only) receive the exact address and access instructions.
 - **Dashboard:** profile, my listings, incoming requests, my requests, favorites, account/security.
 - **Admin:** reports queue, suspend/restore listings, suspend/reactivate accounts, audit log. Admin is a database role changed only out-of-band; every action is re-authorized inside the database.
@@ -43,6 +43,7 @@ Migrations are plain SQL in `supabase/migrations/` (apply in filename order):
 | `…04_rpc_search_admin.sql` | `search_listings`, owner/disclosure RPCs, admin RPCs |
 | `…05_storage.sql` | `listing-photos` bucket + storage policies |
 | `…06_harden_functions.sql` | advisor fixes: revoke trigger fn from API roles, pin `search_path` |
+| `…07_walking_distance_search.sql` | metre-based `search_listings`, finer (~220 m) public grid |
 
 Either **CLI** — `npx supabase login && npx supabase link --project-ref <ref> && npx supabase db push` — or paste each file into the dashboard **SQL Editor** in order.
 
@@ -125,7 +126,7 @@ Any Node host works; Vercel is the simplest:
 ## Known limitations
 - **OTP throttling in the app is in-memory per server instance** (a speed bump). The authoritative limits are Supabase's; add CAPTCHA before launch.
 - Photos live in a **public bucket** (unguessable UUID paths). Photos of unpublished listings are reachable by anyone who has the URL. No content moderation/EXIF stripping; MIME/size are enforced by bucket config and extension rules, not by inspecting file bytes.
-- "Approximate" location is a deterministic ~430 m grid — adequate for a prototype, not a formal privacy guarantee (a determined observer can learn the grid cell).
+- "Approximate" location is a deterministic ~220 m grid (about 100 m typical error) — a deliberate trade-off so a 200 m walking search is meaningful. Adequate for a prototype, not a formal privacy guarantee: a determined observer can learn the grid cell, and in dense areas ~220 m is a few buildings. Approximate listings match a radius with ~110 m of tolerance because their public pin is rounded. Make the grid coarser by changing the `step` default in `snap_coordinate` (and `snapCoordinate` in `src/lib/map.ts`).
 - Email on the profile is unverified and informational. No account self-deletion. Suspending an account does not revoke its existing sessions (it blocks all writes and hides its listings).
 - No messaging, payments, reviews, notifications or calendar sync. Overlap detection treats a request without times as the whole day; a one-time range of 7+ days counts as every weekday.
 - `supabase/config.toml` is hand-written and untested. Locality centre points are rough (±1 km).

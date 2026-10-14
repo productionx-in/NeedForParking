@@ -65,3 +65,14 @@ export function formatDateTime(iso: string | null | undefined): string {
 export function todayIST(now: Date = new Date()): string {
   return new Date(now.getTime() + 5.5 * 3600_000).toISOString().slice(0, 10);
 }
+
+/** Walking distance for a result: "~180 m" under a kilometre, "1.2 km" above. Rounded, since public pins are approximate. */
+export function formatDistance(metres: number): string {
+  if (metres < 1000) return `~${Math.max(10, Math.round(metres / 10) * 10)} m`;
+  return `${(metres / 1000).toFixed(1)} km`;
+}
+
+/** A search radius for headings: "200 m", "1 km", "1.5 km". */
+export function formatRadius(metres: number): string {
+  return metres < 1000 ? `${metres} m` : `${Number((metres / 1000).toFixed(1))} km`;
+}

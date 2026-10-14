@@ -38,7 +38,10 @@ test("admin reviews a reported listing, suspends it, and it disappears from the 
   await report.getByRole("button", { name: "Suspend listing" }).click();
   await expect(report.getByText("Listing suspended and hidden from the public.")).toBeVisible({ timeout: 15_000 });
   await report.getByRole("button", { name: "Mark actioned" }).click();
-  await expect(report.getByText("Report updated.")).toBeVisible({ timeout: 15_000 });
+  // Resolved reports leave the open queue and show up under "Closed".
+  await expect(admin.getByTestId("report").filter({ hasText: title })).toHaveCount(0, { timeout: 15_000 });
+  await admin.goto("/admin?status=closed");
+  await expect(admin.getByTestId("report").filter({ hasText: title }).getByText("actioned", { exact: true })).toBeVisible();
 
   await visitor.goto(`/search?q=${encodeURIComponent(title)}`);
   await expect(visitor.getByTestId("listing-card")).toHaveCount(0);
@@ -47,8 +50,9 @@ test("admin reviews a reported listing, suspends it, and it disappears from the 
 
   // The owner sees it was suspended and cannot lift it.
   await owner.goto("/dashboard/listings");
-  await expect(owner.getByText("Suspended by moderator")).toBeVisible();
-  await expect(owner.getByText(/e2e: suspended for review/)).toBeVisible();
+  const mine = owner.locator("li", { has: owner.getByRole("heading", { name: title }) });
+  await expect(mine.getByText("Suspended by moderator")).toBeVisible();
+  await expect(mine.getByText(/e2e: suspended for review/)).toBeVisible();
   await owner.goto(`/dashboard/listings/${id}`).catch(() => undefined);
 
   await admin.goto("/admin/activity");

@@ -15,12 +15,13 @@ import type { SearchRow } from "@/lib/types";
 const card = (id: string, title: string): SearchRow => ({
   id, title, locality: "Madhapur", city: "Hyderabad", vehicle_types: ["car"], cover_type: "open", rental_type: "daily", price_inr: "100", min_duration: 1, deposit_inr: "0",
   available_days: [1], available_from: null, available_to: null, access_24h: true, overnight_allowed: false, latitude: 17.45, longitude: 78.39, location_privacy: "approximate",
-  is_demo: false, created_at: "2026-01-01T00:00:00Z", cover_photo_path: null, is_open_now: false, distance_km: null, total_count: 2,
+  is_demo: false, created_at: "2026-01-01T00:00:00Z", cover_photo_path: null, is_open_now: false, distance_m: null, total_count: 2,
 });
 
 let getCurrentPosition: ReturnType<typeof vi.fn>;
 beforeEach(() => {
   getCurrentPosition = vi.fn();
+  HTMLFormElement.prototype.requestSubmit = vi.fn(); // jsdom doesn't implement it
   Object.defineProperty(globalThis.navigator, "geolocation", { value: { getCurrentPosition }, configurable: true });
 });
 afterEach(() => vi.restoreAllMocks());
@@ -42,6 +43,22 @@ describe("FilterForm", () => {
     expect(screen.getByLabelText("Max price (₹)")).toHaveValue(4000);
     expect(screen.getByLabelText(/Available right now/)).toBeChecked();
     expect(screen.getByLabelText(/Overnight parking allowed/)).not.toBeChecked();
+  });
+
+  it("offers walking-distance radii in metres, defaulting to Auto", () => {
+    render(<FilterForm filters={parseSearchParams({})} />);
+    const radius = screen.getByLabelText("Walking distance from destination") as HTMLSelectElement;
+    expect(radius.value).toBe("");
+    expect([...radius.options].map((o) => o.textContent)).toEqual(["Auto", "Within 100 m", "Within 200 m", "Within 300 m", "Within 500 m", "Within 1 km", "Within 2 km"]);
+  });
+
+  it("reflects an explicit radius from the URL, even a custom one", () => {
+    const { unmount } = render(<FilterForm filters={parseSearchParams({ lat: "17.44", lng: "78.37", radius: "300" })} />);
+    expect(screen.getByLabelText("Walking distance from destination")).toHaveValue("300");
+    unmount();
+    render(<FilterForm filters={parseSearchParams({ lat: "17.44", lng: "78.37", radius: "750" })} />);
+    expect(screen.getByLabelText("Walking distance from destination")).toHaveValue("750");
+    expect(screen.getByRole("option", { name: "Within 750 m" })).toBeInTheDocument();
   });
 
   it("never asks for the browser location until the user presses the button", async () => {
@@ -110,14 +127,14 @@ describe("maps without an API key", () => {
 describe("ResultsExplorer", () => {
   const items = [card("a", "Alpha bay"), card("b", "Bravo bay")];
   it("list view shows only cards (no map)", () => {
-    render(<ResultsExplorer items={items} view="list" destination={null} />);
+    render(<ResultsExplorer items={items} view="list" filters={parseSearchParams({})} destination={null} />);
     expect(screen.getAllByTestId("listing-card")).toHaveLength(2);
     expect(screen.queryByText("Map unavailable")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Show on map" })).not.toBeInTheDocument();
   });
   it("map view synchronises selection between list and map and survives a missing map key", async () => {
     const user = userEvent.setup();
-    render(<ResultsExplorer items={items} view="map" destination={null} />);
+    render(<ResultsExplorer items={items} view="map" filters={parseSearchParams({})} destination={null} />);
     expect(screen.getByText("Map unavailable")).toBeInTheDocument();
     const buttons = screen.getAllByRole("button", { name: "Show on map" });
     await user.click(buttons[1]!);

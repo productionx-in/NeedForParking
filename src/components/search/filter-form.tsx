@@ -6,7 +6,8 @@ import { COVER_TYPES, DAYS, RENTAL_TYPES, VEHICLE_TYPES } from "@/lib/domain/con
 import { HYDERABAD_LOCALITIES } from "@/lib/domain/localities";
 import { isInRegion } from "@/lib/map";
 import type { SearchFilters } from "@/lib/validation/search";
-import { activeFilterCount } from "@/lib/validation/search";
+import { activeFilterCount, RADIUS_OPTIONS_M } from "@/lib/validation/search";
+import { formatRadius } from "@/lib/domain/format";
 import { Button, buttonClass, Checkbox, Field, Input, Select } from "@/components/ui";
 
 /** A plain GET form: filters live in the URL, so results are shareable and work without JavaScript. */
@@ -96,9 +97,13 @@ export function FilterForm({ filters }: { filters: SearchFilters }) {
           <Field id="maxPrice" label="Max price (₹)">
             <Input id="maxPrice" name="maxPrice" type="number" min={0} step={10} inputMode="numeric" defaultValue={filters.maxPrice ?? ""} />
           </Field>
-          <Field id="radius" label="Distance from destination">
-            <Select id="radius" name="radius" defaultValue={String(filters.radiusKm)}>
-              {[1, 2, 3, 5, 10, 20].map((r) => <option key={r} value={r}>Within {r} km</option>)}
+          <Field id="radius" label="Walking distance from destination" hint="Auto = 200 m around a precise point, 1 km around an area.">
+            <Select id="radius" name="radius" defaultValue={filters.radiusParam === null ? "" : String(filters.radiusParam)} hint="Auto = 200 m around a precise point, 1 km around an area.">
+              <option value="">Auto</option>
+              {filters.radiusParam !== null && !(RADIUS_OPTIONS_M as readonly number[]).includes(filters.radiusParam) && (
+                <option value={filters.radiusParam}>Within {formatRadius(filters.radiusParam)}</option>
+              )}
+              {RADIUS_OPTIONS_M.map((r) => <option key={r} value={r}>Within {formatRadius(r)}</option>)}
             </Select>
           </Field>
           <Field id="sort" label="Sort by">

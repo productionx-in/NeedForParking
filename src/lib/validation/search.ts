@@ -4,6 +4,10 @@ import { findLocality } from "@/lib/domain/localities";
 
 export const PAGE_SIZE = 12;
 export const MAP_PAGE_SIZE = 60;
+/** Walking distance, in metres. People look for parking within a few hundred metres of where they're going. */
+export const RADIUS_OPTIONS_M = [100, 200, 300, 500, 1000, 2000] as const;
+export const DEFAULT_POINT_RADIUS_M = 200; // a precise destination (map click, GPS, coordinates)
+export const DEFAULT_AREA_RADIUS_M = 1000; // a named area: locality centres are only accurate to ~1 km
 export const SORTS = ["newest", "price_asc", "price_desc", "distance"] as const;
 export type Sort = (typeof SORTS)[number];
 
@@ -12,7 +16,10 @@ export type SearchFilters = {
   near: string;
   lat: number | null;
   lng: number | null;
-  radiusKm: number;
+  /** The radius actually used (explicit, or the default for a point/area). */
+  radiusM: number;
+  /** The radius as given in the URL; null means "auto". */
+  radiusParam: number | null;
   vehicle: string;
   rental: string;
   cover: string;
@@ -49,14 +56,17 @@ export function parseSearchParams(raw: Raw): SearchFilters {
   const maxPrice = num(one(raw.maxPrice));
   const day = num(one(raw.day));
   const radius = num(one(raw.radius));
+  const near = findLocality(one(raw.near))?.name ?? "";
+  const radiusParam = radius !== null && radius >= 50 && radius <= 20_000 ? Math.round(radius) : null;
   const page = Math.floor(num(one(raw.page)) ?? 1);
   const sortRaw = inEnum(one(raw.sort), SORTS) || "newest";
   return {
     q: one(raw.q).slice(0, 80),
-    near: findLocality(one(raw.near))?.name ?? "",
+    near,
     lat: validCoords ? lat : null,
     lng: validCoords ? lng : null,
-    radiusKm: radius !== null && radius > 0 && radius <= 50 ? radius : 5,
+    radiusM: radiusParam ?? (validCoords ? DEFAULT_POINT_RADIUS_M : near ? DEFAULT_AREA_RADIUS_M : DEFAULT_POINT_RADIUS_M),
+    radiusParam,
     vehicle: inEnum(one(raw.vehicle), VEHICLE_VALUES),
     rental: inEnum(one(raw.rental), ["hourly", "daily", "monthly"] as const),
     cover: inEnum(one(raw.cover), ["covered", "open"] as const),
@@ -95,7 +105,7 @@ export function toRpcArgs(f: SearchFilters, pageSize = f.view === "map" ? MAP_PA
     p_access_24h: f.access24h,
     p_lat: dest?.lat ?? null,
     p_lng: dest?.lng ?? null,
-    p_radius_km: dest ? f.radiusKm : null,
+    p_radius_m: dest ? f.radiusM : null,
     p_sort: sort,
     p_limit: pageSize,
     p_offset: (f.page - 1) * pageSize,
@@ -112,7 +122,7 @@ export function buildSearchQuery(f: SearchFilters, overrides: Partial<Record<str
   set("near", f.near);
   set("lat", f.lat);
   set("lng", f.lng);
-  if (f.lat !== null || f.near) set("radius", f.radiusKm);
+  if (f.lat !== null || f.near) set("radius", f.radiusParam);
   set("vehicle", f.vehicle);
   set("rental", f.rental);
   set("cover", f.cover);

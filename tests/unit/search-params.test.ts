@@ -5,18 +5,18 @@ import { pageWindow } from "@/components/search/pagination";
 describe("search param parsing (untrusted URL input)", () => {
   it("returns safe defaults for an empty query", () => {
     const f = parseSearchParams({});
-    expect(f).toMatchObject({ q: "", vehicle: "", rental: "", cover: "", minPrice: null, maxPrice: null, day: null, openNow: false, sort: "newest", view: "list", page: 1, radiusKm: 5 });
+    expect(f).toMatchObject({ q: "", vehicle: "", rental: "", cover: "", minPrice: null, maxPrice: null, day: null, openNow: false, sort: "newest", view: "list", page: 1, radiusM: 200, radiusParam: null });
   });
 
   it("drops invalid enum values, junk numbers and out-of-region coordinates", () => {
-    const f = parseSearchParams({ vehicle: "truck", rental: "yearly", cover: "roofed", minPrice: "abc", maxPrice: "-5", day: "9", page: "-3", sort: "random", view: "3d", lat: "48.8", lng: "2.3", radius: "9999" });
-    expect(f).toMatchObject({ vehicle: "", rental: "", cover: "", minPrice: null, maxPrice: null, day: null, page: 1, sort: "newest", view: "list", lat: null, lng: null, radiusKm: 5 });
+    const f = parseSearchParams({ vehicle: "truck", rental: "yearly", cover: "roofed", minPrice: "abc", maxPrice: "-5", day: "9", page: "-3", sort: "random", view: "3d", lat: "48.8", lng: "2.3", radius: "999999" });
+    expect(f).toMatchObject({ vehicle: "", rental: "", cover: "", minPrice: null, maxPrice: null, day: null, page: 1, sort: "newest", view: "list", lat: null, lng: null, radiusM: 200, radiusParam: null });
   });
 
   it("accepts valid values and clamps the query length", () => {
-    const f = parseSearchParams({ q: "x".repeat(500), vehicle: "car", rental: "monthly", cover: "covered", minPrice: "1000", maxPrice: "5000", day: "3", openNow: "1", overnight: "1", access24h: "1", sort: "price_asc", view: "map", page: "4", lat: "17.44", lng: "78.38", radius: "3" });
+    const f = parseSearchParams({ q: "x".repeat(500), vehicle: "car", rental: "monthly", cover: "covered", minPrice: "1000", maxPrice: "5000", day: "3", openNow: "1", overnight: "1", access24h: "1", sort: "price_asc", view: "map", page: "4", lat: "17.44", lng: "78.38", radius: "300" });
     expect(f.q).toHaveLength(80);
-    expect(f).toMatchObject({ vehicle: "car", rental: "monthly", cover: "covered", minPrice: 1000, maxPrice: 5000, day: 3, openNow: true, overnight: true, access24h: true, sort: "price_asc", view: "map", page: 4, lat: 17.44, lng: 78.38, radiusKm: 3 });
+    expect(f).toMatchObject({ vehicle: "car", rental: "monthly", cover: "covered", minPrice: 1000, maxPrice: 5000, day: 3, openNow: true, overnight: true, access24h: true, sort: "price_asc", view: "map", page: 4, lat: 17.44, lng: 78.38, radiusM: 300, radiusParam: 300 });
   });
 
   it("takes the first value when a param is repeated", () => {
@@ -31,9 +31,24 @@ describe("search param parsing (untrusted URL input)", () => {
 
   it("builds RPC args: pagination, destination radius, and distance sort fallback", () => {
     const a = toRpcArgs(parseSearchParams({ page: "3", vehicle: "car", sort: "distance" }));
-    expect(a).toMatchObject({ p_limit: PAGE_SIZE, p_offset: PAGE_SIZE * 2, p_vehicle: "car", p_sort: "newest", p_lat: null, p_radius_km: null });
-    const b = toRpcArgs(parseSearchParams({ near: "Gachibowli", sort: "distance", radius: "2", view: "map" }));
-    expect(b).toMatchObject({ p_sort: "distance", p_radius_km: 2, p_limit: MAP_PAGE_SIZE, p_lat: 17.4401 });
+    expect(a).toMatchObject({ p_limit: PAGE_SIZE, p_offset: PAGE_SIZE * 2, p_vehicle: "car", p_sort: "newest", p_lat: null, p_radius_m: null });
+    const b = toRpcArgs(parseSearchParams({ near: "Gachibowli", sort: "distance", radius: "500", view: "map" }));
+    expect(b).toMatchObject({ p_sort: "distance", p_radius_m: 500, p_limit: MAP_PAGE_SIZE, p_lat: 17.4401 });
+  });
+
+  it("picks walking-distance defaults: 200 m around a precise point, 1 km around a named area", () => {
+    expect(parseSearchParams({ lat: "17.4435", lng: "78.3772" })).toMatchObject({ radiusM: 200, radiusParam: null });
+    expect(parseSearchParams({ near: "Madhapur" })).toMatchObject({ radiusM: 1000, radiusParam: null });
+    expect(parseSearchParams({ near: "Madhapur", lat: "17.4435", lng: "78.3772" })).toMatchObject({ radiusM: 200 });
+    expect(toRpcArgs(parseSearchParams({ lat: "17.4435", lng: "78.3772" }))).toMatchObject({ p_radius_m: 200 });
+    expect(toRpcArgs(parseSearchParams({ near: "Madhapur" }))).toMatchObject({ p_radius_m: 1000 });
+  });
+
+  it("treats radius as metres and rejects nonsense (kilometre-sized or tiny values)", () => {
+    expect(parseSearchParams({ lat: "17.44", lng: "78.37", radius: "150" }).radiusM).toBe(150);
+    for (const bad of ["abc", "-5", "0", "10", "999999"]) {
+      expect(parseSearchParams({ lat: "17.44", lng: "78.37", radius: bad })).toMatchObject({ radiusM: 200, radiusParam: null });
+    }
   });
 
   it("round-trips filters through the query string and supports overrides", () => {

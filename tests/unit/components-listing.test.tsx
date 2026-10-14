@@ -326,7 +326,7 @@ const row = (over: Partial<SearchRow> = {}): SearchRow => ({
   id: LISTING, title: "Covered bay near Inorbit", locality: "Madhapur", city: "Hyderabad", vehicle_types: ["car"], cover_type: "covered", rental_type: "monthly",
   price_inr: "3500.00", min_duration: 1, deposit_inr: "0", available_days: [1, 2, 3, 4, 5], available_from: "08:00:00", available_to: "20:00:00", access_24h: false,
   overnight_allowed: false, latitude: 17.45, longitude: 78.39, location_privacy: "approximate", is_demo: false, created_at: "2026-01-01T00:00:00Z", cover_photo_path: null,
-  is_open_now: true, distance_km: null, total_count: 1, ...over,
+  is_open_now: true, distance_m: null, total_count: 1, ...over,
 });
 
 describe("ListingCard", () => {
@@ -342,9 +342,15 @@ describe("ListingCard", () => {
     expect(screen.queryByText(/DEMO DATA/)).not.toBeInTheDocument();
     expect(screen.getByText("No photo yet")).toBeInTheDocument();
   });
-  it("clearly labels demo listings and shows distance when searching near a point", () => {
-    render(<ListingCard listing={row({ is_demo: true, distance_km: 1.234 })} />);
+  it("clearly labels demo listings", () => {
+    render(<ListingCard listing={row({ is_demo: true })} />);
     expect(screen.getByText(/DEMO DATA/)).toBeInTheDocument();
+  });
+  it("shows walking distance in metres when close, kilometres when far", () => {
+    const { unmount } = render(<ListingCard listing={row({ distance_m: 184 })} />);
+    expect(screen.getByText(/~180 m away/)).toBeInTheDocument();
+    unmount();
+    render(<ListingCard listing={row({ distance_m: 1234 })} />);
     expect(screen.getByText(/1\.2 km away/)).toBeInTheDocument();
   });
 });

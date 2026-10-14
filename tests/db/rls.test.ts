@@ -180,8 +180,8 @@ describe("privacy of public data", () => {
     const { latitude, longitude, public_address } = pub.rows[0]!;
     expect(latitude).not.toBe(17.448612);
     expect(longitude).not.toBe(78.390871);
-    expect(Math.abs(latitude - 17.448612)).toBeLessThan(0.0035);
-    expect(Math.abs(longitude - 78.390871)).toBeLessThan(0.0035);
+    expect(Math.abs(latitude - 17.448612)).toBeLessThan(0.0021); // within one ~220 m cell
+    expect(Math.abs(longitude - 78.390871)).toBeLessThan(0.0021);
     expect(public_address).toBeNull();
     // Grid snapping is deterministic: nearby exact points collapse to the same public point.
     const id2 = await createPublished(db, owner, {}, { exact_latitude: 17.4491, exact_longitude: 78.3913 });
@@ -206,7 +206,7 @@ describe("privacy of public data", () => {
     const id = await createPublished(db, owner);
     await as(db, asUser(owner), (tx) => tx.query(`update public.listing_private_details set exact_latitude = 17.5001, exact_longitude = 78.5001 where listing_id = $1`, [id]));
     const pub = await as(db, anon, (tx) => tx.query<{ latitude: number }>(`select latitude from public.parking_listings where id = $1`, [id]));
-    expect(Math.abs(pub.rows[0]!.latitude - 17.5001)).toBeLessThan(0.0035);
+    expect(Math.abs(pub.rows[0]!.latitude - 17.5001)).toBeLessThan(0.0021);
   });
 
   it("the public owner profile exposes only name, member-since and a verified flag", async () => {

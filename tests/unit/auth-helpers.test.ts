@@ -6,6 +6,7 @@ import { describeOtpSendError } from "@/lib/auth/otp";
 import { friendlyDbError } from "@/lib/errors";
 import { otpCodeSchema, profileSchema, reportSchema, validatePhotoFile, buildPhotoPath, photoExtension } from "@/lib/validation/misc";
 import { circlePolygon, haversineKm, isInRegion, snapCoordinate } from "@/lib/map";
+import { formatDistance, formatRadius } from "@/lib/domain/format";
 
 describe("phone numbers", () => {
   it("defaults to India (+91) and lists it first", () => {
@@ -140,9 +141,12 @@ describe("photo and form helpers", () => {
 
 describe("map helpers", () => {
   it("snaps coordinates to the same grid as the database", () => {
-    expect(snapCoordinate(17.448612)).toBe(17.45);
-    expect(snapCoordinate(17.4491)).toBe(17.45);
-    expect(snapCoordinate(78.390871)).toBe(78.39);
+    expect(snapCoordinate(17.448612)).toBe(17.449);
+    expect(snapCoordinate(17.4491)).toBe(17.449);
+    expect(snapCoordinate(78.390871)).toBe(78.391);
+    // cells are ~220 m: the snapped point is never further than ~155 m from the real one
+    const real = { lat: 17.448612, lng: 78.390871 };
+    expect(haversineKm(real, { lat: snapCoordinate(real.lat), lng: snapCoordinate(real.lng) }) * 1000).toBeLessThan(160);
   });
   it("approximates circles and distances", () => {
     const poly = circlePolygon(17.45, 78.39, 300);
@@ -183,5 +187,19 @@ describe("demo seed data", () => {
     expect(new Set(DEMO_LISTINGS.map((d) => d.values.rentalType)).size).toBe(3);
     expect(new Set(DEMO_LISTINGS.map((d) => d.values.coverType)).size).toBe(2);
     expect(new Set(DEMO_LISTINGS.map((d) => d.values.title)).size).toBe(DEMO_LISTINGS.length);
+  });
+});
+
+describe("walking-distance formatting", () => {
+  it("shows metres under a kilometre (rounded to 10 m) and kilometres above", () => {
+    expect(formatDistance(184)).toBe("~180 m");
+    expect(formatDistance(4)).toBe("~10 m");
+    expect(formatDistance(999)).toBe("~1000 m");
+    expect(formatDistance(1234)).toBe("1.2 km");
+  });
+  it("formats radii for headings", () => {
+    expect(formatRadius(200)).toBe("200 m");
+    expect(formatRadius(1000)).toBe("1 km");
+    expect(formatRadius(1500)).toBe("1.5 km");
   });
 });
