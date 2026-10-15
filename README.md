@@ -142,3 +142,29 @@ supabase/           migrations/, config.toml (local CLI)
 scripts/            seed-demo.ts, demo-data.ts
 tests/unit|db|e2e   Vitest (+RTL), PGlite database tests, Playwright
 ```
+
+## Android APK (test on a phone)
+
+`mobile/` is a thin [Capacitor](https://capacitorjs.com) WebView shell. The app is server-rendered (server actions, cookie
+sessions), so the APK does not bundle it: it loads the deployed site over HTTPS (default
+`https://need-for-parking.vercel.app`). Updating the web app needs **no** new APK; rebuild only when `mobile/` or the target URL changes.
+
+**Build in CI (no local Android SDK needed):** `.github/workflows/android-apk.yml` runs on pushes touching `mobile/**` and
+manually (Actions -> "Android APK (debug)" -> Run workflow, optional `app_url`). Download the `parking-prototype-debug-apk`
+artifact, unzip it, and copy `parking-prototype-debug.apk` to the phone. To point at another host, set the repository variable
+`APP_URL` (or pass `app_url` when running manually).
+
+**Install:** open the file on the phone and allow "Install unknown apps" for your file manager/browser when prompted.
+It is a *debug-signed* build for testing only. It is not a Play Store release build.
+
+**Build locally** (needs JDK 21 and the Android SDK; `ANDROID_HOME` set):
+
+```bash
+cd mobile && npm ci
+APP_URL=https://your-host npx cap sync android
+cd android && ./gradlew assembleDebug   # -> app/build/outputs/apk/debug/app-debug.apk
+```
+
+Notes: the target must be HTTPS and publicly reachable (a Vercel deployment with Deployment Protection enabled will show Vercel's
+login page inside the app). Phone sign-in still needs the Supabase Phone provider configured. "Use my location" asks for
+Android location permission. Debugging: Chrome -> `chrome://inspect` with the phone connected (WebView debugging is on).

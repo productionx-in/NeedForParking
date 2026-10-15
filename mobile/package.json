@@ -1,0 +1,18 @@
+{
+  "name": "parking-research-prototype-android",
+  "private": true,
+  "version": "0.1.0",
+  "description": "Android WebView shell (Capacitor) for the Parking Research Prototype web app.",
+  "scripts": {
+    "sync": "cap sync android",
+    "build:debug": "cap sync android && cd android && ./gradlew assembleDebug"
+  },
+  "dependencies": {
+    "@capacitor/android": "^8.5.3",
+    "@capacitor/core": "^8.5.3"
+  },
+  "devDependencies": {
+    "@capacitor/cli": "^8.5.3",
+    "typescript": "^5.9.0"
+  }
+}

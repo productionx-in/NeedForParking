@@ -1,0 +1,54 @@
+name: Android APK (debug)
+
+# Builds an installable debug APK of the Capacitor WebView shell in ./mobile.
+# The APK loads the deployed site, so rebuild it only when ./mobile changes or the target URL changes.
+# Target URL: repository variable APP_URL (Settings -> Secrets and variables -> Actions -> Variables),
+# or the "app_url" input when run manually; defaults to https://need-for-parking.vercel.app.
+
+on:
+  push:
+    branches: ["claude/**", main]
+    paths: ["mobile/**", ".github/workflows/android-apk.yml"]
+  workflow_dispatch:
+    inputs:
+      app_url:
+        description: "HTTPS URL the app should load"
+        required: false
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: mobile
+    env:
+      APP_URL: ${{ github.event.inputs.app_url || vars.APP_URL || 'https://need-for-parking.vercel.app' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Sync Capacitor (writes the target URL into the APK)
+        run: npx cap sync android
+      - name: Build debug APK
+        working-directory: mobile/android
+        run: ./gradlew --no-daemon assembleDebug
+      - name: Name the APK
+        run: cp android/app/build/outputs/apk/debug/app-debug.apk parking-prototype-debug.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: parking-prototype-debug-apk
+          path: mobile/parking-prototype-debug.apk
+          if-no-files-found: error
+          retention-days: 30
